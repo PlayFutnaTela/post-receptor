@@ -59,7 +59,7 @@ class Post_Translation {
                 $custom_prompt = "$fluency_statement, specializing in WordPress blog translations. Translate the title from {$source_name} to {$target_name} using the " . $stored_system_prompt . ". Ensure full conversion.";
                 break;
             case 'body':
-                $custom_prompt = "$fluency_statement, specializing in WordPress blog translations. Translate the content from {$source_name} to {$target_name} using the " . $stored_system_prompt . ". IMPORTANT: The content may contain HTML markup; preserve all markup and translate only the visible text.";
+                $custom_prompt = "$fluency_statement, specializing in WordPress blog translations. Translate the content from {$source_name} to {$target_name} using the " . $stored_system_prompt . ". IMPORTANT: The content may contain HTML markup. Preserve ALL HTML tags, attributes, and structure exactly as they are. Translate ONLY the visible text content inside the tags. Do not translate tag names, attribute names, or attribute values. Maintain the exact HTML structure.";
                 break;
             case 'excerpt':
                 $custom_prompt = "$fluency_statement, specializing in WordPress blog translations. Translate the excerpt from {$source_name} to {$target_name} using the " . $stored_system_prompt . ".";
