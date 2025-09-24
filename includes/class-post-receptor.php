@@ -143,6 +143,10 @@ class Post_Receptor {
                     }
                 }
                 if ( $update_image ) {
+                    // Deleta a imagem de destaque anterior para evitar acúmulo na biblioteca
+                    if ( $existing_thumbnail_id ) {
+                        wp_delete_attachment( $existing_thumbnail_id, true );
+                    }
                     $this->media_manager->set_featured_image( $post_id, $media['featured_image'] );
                 }
             }
