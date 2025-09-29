@@ -100,7 +100,8 @@ class Post_Receptor_Admin_Settings {
                     <tr valign="top">
                         <th scope="row"><?php _e( 'Token de Autenticação', 'post-receptor' ); ?></th>
                         <td>
-                            <!-- Não exibimos o token do banco. Apenas geramos um novo quando clicar. -->
+                            <!-- Exibir o token atual para depuração (apenas os primeiros 8 caracteres) -->
+                            <p><?php _e( 'Token atual:', 'post-receptor' ); ?> <code><?php echo esc_html( substr( get_option( 'post_receptor_auth_token', '' ), 0, 8 ) . '...' ); ?></code></p>
                             <button type="button" class="button" id="generate_receptor_token">
                                 <?php _e( 'Gerar Novo Token', 'post-receptor' ); ?>
                             </button>

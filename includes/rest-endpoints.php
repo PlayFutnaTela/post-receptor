@@ -14,18 +14,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 function post_receptor_authenticate( $request ) {
     $headers = $request->get_headers();
     if ( ! isset( $headers['authorization'][0] ) ) {
+        error_log('[Post Receptor] Erro de autenticação: Cabeçalho de autorização ausente');
         return new WP_Error( 'forbidden', __( 'Cabeçalho de autorização ausente.', 'post-receptor' ), array( 'status' => 403 ) );
     }
     $auth = $headers['authorization'][0];
     if ( strpos( $auth, 'Bearer ' ) !== 0 ) {
+        error_log('[Post Receptor] Erro de autenticação: Formato de autorização inválido. Recebido: ' . $auth);
         return new WP_Error( 'forbidden', __( 'Formato de autorização inválido.', 'post-receptor' ), array( 'status' => 403 ) );
     }
     $token = substr( $auth, 7 );
     // Recupera o token esperado, definido na área administrativa do receptor.
     $expected_token = get_option( 'post_receptor_auth_token' );
-    if ( empty( $expected_token ) || $token !== $expected_token ) {
+    if ( empty( $expected_token ) ) {
+        error_log('[Post Receptor] Erro de autenticação: Nenhum token configurado no receptor');
+        return new WP_Error( 'forbidden', __( 'Nenhum token configurado no receptor.', 'post-receptor' ), array( 'status' => 403 ) );
+    }
+    if ( $token !== $expected_token ) {
+        error_log('[Post Receptor] Erro de autenticação: Token inválido. Recebido: ' . substr($token, 0, 8) . '..., Esperado: ' . substr($expected_token, 0, 8) . '...');
         return new WP_Error( 'forbidden', __( 'Token inválido.', 'post-receptor' ), array( 'status' => 403 ) );
     }
+    error_log('[Post Receptor] Autenticação bem sucedida para o token: ' . substr($token, 0, 8) . '...');
     return true;
 }
 
@@ -113,19 +121,30 @@ function post_receptor_delete_post( WP_REST_Request $request ) {
 }
 
 /**
- * Endpoint para verificar o token (check-token).
- * Se autenticado com sucesso, retorna { "success": true }
- * Caso contrário, retorna o erro de autenticação (403).
+ * Endpoint para verificar o token de autenticação
  *
  * URL: /wp-json/post-receptor/v1/check-token
  */
-function post_receptor_check_token( WP_REST_Request $request ) {
-    $auth_result = post_receptor_authenticate( $request );
-    if ( is_wp_error( $auth_result ) ) {
-        return $auth_result;
+function post_receptor_check_token(WP_REST_Request $request) {
+    $auth_header = $request->get_header('Authorization');
+    $received_token = str_replace('Bearer ', '', $auth_header);
+    $expected_token = get_option('post_receptor_auth_token');
+
+    // Logging detalhado para depuração
+    error_log('[Post Receptor] Token recebido: ' . $received_token);
+    error_log('[Post Receptor] Token esperado: ' . $expected_token);
+
+    if (empty($expected_token)) {
+        error_log('[Post Receptor] Erro: Nenhum token configurado no receptor');
+        return new WP_Error('no_token', 'Token não configurado no receptor', array('status' => 403));
     }
-    // Se passou pela autenticação, retornamos { success: true }
-    return array( 'success' => true );
+
+    if ($received_token !== $expected_token) {
+        error_log('[Post Receptor] Erro: Token inválido. Recebido: ' . $received_token . ', Esperado: ' . $expected_token);
+        return new WP_Error('invalid_token', 'Token de autenticação inválido', array('status' => 403));
+    }
+
+    return array('success' => true);
 }
 
 /**
@@ -155,5 +174,31 @@ function post_receptor_register_routes() {
         'callback' => 'post_receptor_check_token',
         'permission_callback' => '__return_true',
     ) );
+    
+    // Adiciona endpoint para verificação de status do receptor
+    register_rest_route( 'post-receptor/v1', '/status', array(
+        'methods'  => 'GET',
+        'callback' => function() {
+            $auth_token_set = !empty(get_option('post_receptor_auth_token'));
+            return array(
+                'status' => 'active',
+                'auth_token_configured' => $auth_token_set,
+                'timestamp' => current_time('mysql'),
+                'version' => '1.0.0'
+            );
+        },
+        'permission_callback' => '__return_true',
+    ) );
 }
 add_action( 'rest_api_init', 'post_receptor_register_routes' );
+
+// Adiciona suporte a CORS para permitir requisições do plugin Emissor
+add_filter( 'rest_pre_serve_request', function( $served, $result, $request, $server ) {
+    header( 'Access-Control-Allow-Origin: *' );
+    header( 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS' );
+    header( 'Access-Control-Allow-Headers: Authorization, Content-Type' );
+    if ( $request->get_method() === 'OPTIONS' ) {
+        return true;
+    }
+    return $served;
+}, 10, 4 );
